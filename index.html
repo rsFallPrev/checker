@@ -263,20 +263,35 @@
       font-size: 1.15rem;
     }
 
+    .tiny-summary {
+      margin: -0.4rem 0 0;
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-align: center;
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .details-toggle {
+      margin: -1.2rem 0 0.3rem;
+      font-size: 0.7rem;
+      color: var(--pine);
+      cursor: pointer;
+      text-align: center;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      user-select: none;
+    }
+
+    .details-toggle:hover {
+      opacity: 0.8;
+    }
+
     .sensor-card {
       border: 1px solid var(--line);
       background: var(--card);
       border-radius: 1.25rem;
       padding: 1rem 1.2rem;
-    }
-
-    .section-label {
-      margin: 0.5rem 0 0;
-      font-size: 1.05rem;
-      color: var(--muted);
-    }
-
-    .sensor-card {
       display: flex;
       flex-direction: column;
       gap: 0.85rem;
@@ -338,35 +353,8 @@
       color: var(--unknown);
     }
 
-    .details-btn {
-      min-height: 2.75rem;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: var(--paper);
-      color: var(--ink);
-      font: inherit;
-      font-size: 1.15rem;
-      font-weight: 600;
-      padding: 0 1.1rem;
-    }
-
-    .details-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .details-panel {
-      border-top: 1px solid var(--line);
-      padding-top: 0.85rem;
+    #sensorsSection[hidden] {
       display: none;
-      flex-direction: column;
-      gap: 0.35rem;
-      font-size: 1.25rem;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .details-panel.open {
-      display: flex;
     }
   </style>
 </head>
@@ -411,9 +399,11 @@
       <p class="detail" id="verdictDetail">三項感應器都有，才可以參加研究</p>
     </section>
 
-    <section>
-      <p class="section-label">感應器</p>
+    <p class="tiny-summary" id="tinySummary">G: 未　M: 未　A: 未</p>
 
+    <p class="details-toggle" id="detailsToggle">其他資料</p>
+
+    <div id="sensorsSection" hidden>
       <article class="sensor-card" data-key="gyroscope">
         <div class="sensor-head">
           <h3>陀螺儀</h3>
@@ -421,9 +411,7 @@
         </div>
         <div class="sensor-actions">
           <span class="pill pill-pending" data-pill>未檢查</span>
-          <button type="button" class="details-btn" data-details disabled>詳細資料</button>
         </div>
-        <div class="details-panel" data-panel></div>
       </article>
 
       <article class="sensor-card" data-key="magnetometer">
@@ -433,9 +421,7 @@
         </div>
         <div class="sensor-actions">
           <span class="pill pill-pending" data-pill>未檢查</span>
-          <button type="button" class="details-btn" data-details disabled>詳細資料</button>
         </div>
-        <div class="details-panel" data-panel></div>
       </article>
 
       <article class="sensor-card" data-key="accelerometer">
@@ -445,11 +431,9 @@
         </div>
         <div class="sensor-actions">
           <span class="pill pill-pending" data-pill>未檢查</span>
-          <button type="button" class="details-btn" data-details disabled>詳細資料</button>
         </div>
-        <div class="details-panel" data-panel></div>
       </article>
-    </section>
+    </div>
   </main>
 
   <script>
@@ -459,6 +443,7 @@
       var CHECK_MS = 3000;
       var KEYS = ["gyroscope", "magnetometer", "accelerometer"];
       var LABELS = { gyroscope: "陀螺儀", magnetometer: "磁力計", accelerometer: "加速度計" };
+      var SHORT = { gyroscope: "G", magnetometer: "M", accelerometer: "A" };
 
       var state = {
         phase: "idle",
@@ -469,7 +454,7 @@
         },
         live: { accelerometer: null, gyroscope: null, magnetometer: null, heading: null },
         permissionNote: null,
-        openKey: null
+        sensorsOpen: false
       };
 
       var stopFns = [];
@@ -477,7 +462,6 @@
 
       function $(id) { return document.getElementById(id); }
       function num(v) { return typeof v === "number" && isFinite(v) ? v : null; }
-      function fmt(v) { return v == null ? "—" : v.toFixed(2); }
 
       function axis(src) {
         if (!src) return null;
@@ -498,6 +482,14 @@
         if (!a) return null;
         function c(v) { return v == null ? null : (v * 180) / Math.PI; }
         return { x: c(a.x), y: c(a.y), z: c(a.z) };
+      }
+
+      function shortStatus(status) {
+        if (status === "yes") return "有";
+        if (status === "no") return "無";
+        if (status === "unknown") return "未知";
+        if (status === "checking") return "檢查中";
+        return "未";
       }
 
       function verdict() {
@@ -533,19 +525,6 @@
         else { el.classList.add("pill-pending"); el.textContent = "未檢查"; }
       }
 
-      function xyzHtml(a) {
-        a = a || { x: null, y: null, z: null };
-        return "X: " + fmt(a.x) + "<br>Y: " + fmt(a.y) + "<br>Z: " + fmt(a.z);
-      }
-
-      function magDetailsHtml() {
-        var a = state.live.magnetometer || { x: null, y: null, z: null };
-        return [
-          "X: " + fmt(a.x), "Y: " + fmt(a.y), "Z: " + fmt(a.z),
-          "方向: " + (state.live.heading != null ? Math.round(state.live.heading) + "°" : "—")
-        ].join("<br>");
-      }
-
       function render() {
         var v = verdict();
         var box = $("verdictBox");
@@ -553,6 +532,12 @@
         $("verdictTitle").textContent = v.title;
         $("verdictDetail").textContent = v.detail;
         $("verdictDetail").hidden = !v.detail;
+
+        // Tiny summary
+        var parts = KEYS.map(function (k) {
+          return SHORT[k] + ": " + shortStatus(state.slots[k].status);
+        });
+        $("tinySummary").textContent = parts.join("　");
 
         var directionsEl = $("directionsContainer");
         if (directionsEl) directionsEl.hidden = (state.phase === "done");
@@ -577,18 +562,15 @@
           $("permissionNote").hidden = true;
         }
 
+        // Sensors section visibility
+        var section = $("sensorsSection");
+        if (section) section.hidden = !state.sensorsOpen;
+        var toggle = $("detailsToggle");
+        if (toggle) toggle.textContent = state.sensorsOpen ? "收起" : "其他資料";
+
         KEYS.forEach(function (key) {
           var card = document.querySelector('.sensor-card[data-key="' + key + '"]');
-          setPill(card.querySelector("[data-pill]"), state.slots[key].status);
-          var btn = card.querySelector("[data-details]");
-          btn.disabled = state.phase !== "done";
-          btn.textContent = state.openKey === key ? "收起" : "詳細資料";
-          var panel = card.querySelector("[data-panel]");
-          var open = state.openKey === key && state.phase === "done";
-          panel.classList.toggle("open", open);
-          if (open) {
-            panel.innerHTML = key === "magnetometer" ? magDetailsHtml() : xyzHtml(state.live[key]);
-          }
+          if (card) setPill(card.querySelector("[data-pill]"), state.slots[key].status);
         });
       }
 
@@ -619,7 +601,6 @@
           var acc = ev.webkitCompassAccuracy;
           return { deg: ev.webkitCompassHeading, reliable: !(typeof acc === "number" && acc < 0) };
         }
-        // Only absolute alpha counts; relative alpha is NOT magnetometer evidence.
         if (ev.absolute && typeof ev.alpha === "number" && isFinite(ev.alpha)) {
           return { deg: ev.alpha, reliable: true };
         }
@@ -651,25 +632,21 @@
         if (fill) fill.style.width = "100%";
       }
 
-      // ---------- per-sensor evidence ----------
-      var ev = null; // evidence object for current run
+      var ev = null;
 
       function newEvidence() {
         return {
-          // gyro
           gyroApiExists: !!sensorCtor("Gyroscope"),
           gyroSensorFired: false,
           gyroNumericEvents: 0,
           gyroMoved: false,
           gyroMaxAbs: 0,
-          // accel
           accelApiExists: !!sensorCtor("Accelerometer"),
           accelSensorFired: false,
           accelCompleteSamples: 0,
           accelInGravityBand: 0,
           accelMinMag: Infinity,
           accelMaxMag: -Infinity,
-          // mag
           magApiExists: !!sensorCtor("Magnetometer"),
           magSensorFired: false,
           magReliableHeading: false,
@@ -678,13 +655,9 @@
       }
 
       function judgeGyro() {
-        // Rule 1: Generic Gyroscope fired => definitive.
         if (ev.gyroSensorFired) return "yes";
-        // Rule 2: API exists but never fired => do NOT trust devicemotion rotationRate.
         if (ev.gyroApiExists && !ev.gyroSensorFired) return "no";
-        // Rule 3: No Generic Sensor API (iOS Safari). Require motion + real variation.
         if (ev.gyroNumericEvents >= 2 && ev.gyroMoved && ev.gyroMaxAbs >= 20) return "yes";
-        // If the browser has no gyro API at all and no motion evidence:
         if (!ev.gyroApiExists && ev.gyroNumericEvents === 0 && !ev.gyroMoved) return "unknown";
         return "no";
       }
@@ -692,9 +665,6 @@
       function judgeAccel() {
         if (ev.accelSensorFired) return "yes";
         if (ev.accelApiExists && !ev.accelSensorFired) return "no";
-        // Event fallback: need complete samples inside plausible gravity band,
-        // AND the magnitude must actually vary across samples (proves live sensor,
-        // rejects constant placeholder values).
         var varies = isFinite(ev.accelMinMag) && isFinite(ev.accelMaxMag) &&
           (ev.accelMaxMag - ev.accelMinMag) >= 0.05;
         if (ev.accelInGravityBand >= 2 && varies) return "yes";
@@ -713,7 +683,6 @@
 
       function startCheck() {
         stopAll();
-        state.openKey = null;
         state.permissionNote = null;
         state.phase = "checking";
         state.slots = {
@@ -891,12 +860,9 @@
 
       $("startBtn").addEventListener("click", startCheck);
 
-      document.querySelectorAll(".sensor-card").forEach(function (card) {
-        card.querySelector("[data-details]").addEventListener("click", function () {
-          var key = card.getAttribute("data-key");
-          state.openKey = state.openKey === key ? null : key;
-          render();
-        });
+      $("detailsToggle").addEventListener("click", function () {
+        state.sensorsOpen = !state.sensorsOpen;
+        render();
       });
 
       try { if (window.self !== window.top) $("embeddedNote").hidden = false; }
