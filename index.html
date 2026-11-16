@@ -353,6 +353,17 @@
       color: var(--unknown);
     }
 
+    .details-panel {
+      border-top: 1px solid var(--line);
+      padding-top: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      font-size: 1.25rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--ink);
+    }
+
     #sensorsSection[hidden] {
       display: none;
     }
@@ -412,6 +423,7 @@
         <div class="sensor-actions">
           <span class="pill pill-pending" data-pill>未檢查</span>
         </div>
+        <div class="details-panel" data-panel></div>
       </article>
 
       <article class="sensor-card" data-key="magnetometer">
@@ -422,6 +434,7 @@
         <div class="sensor-actions">
           <span class="pill pill-pending" data-pill>未檢查</span>
         </div>
+        <div class="details-panel" data-panel></div>
       </article>
 
       <article class="sensor-card" data-key="accelerometer">
@@ -432,6 +445,7 @@
         <div class="sensor-actions">
           <span class="pill pill-pending" data-pill>未檢查</span>
         </div>
+        <div class="details-panel" data-panel></div>
       </article>
     </div>
   </main>
@@ -462,6 +476,7 @@
 
       function $(id) { return document.getElementById(id); }
       function num(v) { return typeof v === "number" && isFinite(v) ? v : null; }
+      function fmt(v) { return v == null ? "—" : v.toFixed(2); }
 
       function axis(src) {
         if (!src) return null;
@@ -525,6 +540,21 @@
         else { el.classList.add("pill-pending"); el.textContent = "未檢查"; }
       }
 
+      function xyzHtml(a) {
+        a = a || { x: null, y: null, z: null };
+        return "X: " + fmt(a.x) + "<br>Y: " + fmt(a.y) + "<br>Z: " + fmt(a.z);
+      }
+
+      function magDetailsHtml() {
+        var a = state.live.magnetometer || { x: null, y: null, z: null };
+        return [
+          "X: " + fmt(a.x),
+          "Y: " + fmt(a.y),
+          "Z: " + fmt(a.z),
+          "方向: " + (state.live.heading != null ? Math.round(state.live.heading) + "°" : "—")
+        ].join("<br>");
+      }
+
       function render() {
         var v = verdict();
         var box = $("verdictBox");
@@ -570,7 +600,18 @@
 
         KEYS.forEach(function (key) {
           var card = document.querySelector('.sensor-card[data-key="' + key + '"]');
-          if (card) setPill(card.querySelector("[data-pill]"), state.slots[key].status);
+          if (!card) return;
+          setPill(card.querySelector("[data-pill]"), state.slots[key].status);
+          var panel = card.querySelector("[data-panel]");
+          if (panel) {
+            if (state.sensorsOpen && state.phase === "done") {
+              panel.innerHTML = key === "magnetometer" ? magDetailsHtml() : xyzHtml(state.live[key]);
+              panel.style.display = "flex";
+            } else {
+              panel.innerHTML = "";
+              panel.style.display = "none";
+            }
+          }
         });
       }
 
